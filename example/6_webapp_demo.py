@@ -176,23 +176,25 @@ def api_request(method, endpoint, data=None, use_app_key=False):
     否则使用访问令牌
     """
     headers = {"Content-Type": "application/json"}
+    request_data = data or {}
     
     if use_app_key:
         # 使用App Key和Secret Key签名请求
         timestamp = str(int(time.time()))
-        nonce = str(uuid.uuid4())
         
-        request_body_json = json.dumps(data) if data else ""
-        path = endpoint.replace(UTOPIXEL_BASE_URL, "")
-        signature_string = f"{method}\n{path}\n{timestamp}\n{request_body_json}"
+        # 将认证信息添加到请求体中
+        request_data.update({
+            "app_key": APP_KEY,
+            "timestamp": timestamp
+        })
+        
+        # 生成签名
+        token = request_data.get("token", "")
+        signature_string = f"{timestamp}+{token}"
         signature = generate_hmac_sha256(signature_string, SECRET_KEY)
         
-        headers.update({
-            "X-App-Key": APP_KEY,
-            "X-Timestamp": timestamp,
-            "X-Nonce": nonce,
-            "X-Signature": signature
-        })
+        # 将签名添加到请求体
+        request_data["signature"] = signature
     else:
         # 使用访问令牌
         if 'access_token' not in session:
@@ -203,7 +205,7 @@ def api_request(method, endpoint, data=None, use_app_key=False):
     if method == "GET":
         response = requests.get(endpoint, headers=headers)
     else:  # POST
-        response = requests.post(endpoint, headers=headers, json=data)
+        response = requests.post(endpoint, headers=headers, json=request_data)
         
     return response
 

@@ -331,12 +331,6 @@ def verify_utopixel_token(token):
     # Utopixel令牌验证端点
     verify_endpoint = 'https://auth.utopixel.com/auth/verify_token'
     
-    # 准备请求体
-    req_body = {
-        'token': token
-    }
-    req_body_json = json.dumps(req_body)
-    
     # 获取App Key和Secret Key（从环境变量中）
     app_key = os.environ.get('UTOPIXEL_APP_KEY')
     secret_key = os.environ.get('UTOPIXEL_SECRET_KEY')
@@ -347,20 +341,22 @@ def verify_utopixel_token(token):
     # 设置时间戳（用于签名）
     timestamp = str(int(time.time()))
     
-    # 创建签名（实现取决于Utopixel的签名规范，下面是一个简化示例）
-    sign_data = timestamp + req_body_json
-    signature = generate_hmac_sha256(sign_data, secret_key)
-    
-    # 准备请求头
-    headers = {
-        'Content-Type': 'application/json',
-        'X-App-Key': app_key,
-        'X-Timestamp': timestamp,
-        'X-Signature': signature
+    # 准备请求体
+    req_body = {
+        'token': token,
+        'app_key': app_key,
+        'timestamp': timestamp
     }
     
+    # 创建签名
+    sign_data = f"{timestamp}+{token}"
+    signature = generate_hmac_sha256(sign_data, secret_key)
+    
+    # 将签名添加到请求体
+    req_body['signature'] = signature
+    
     # 发送请求
-    response = requests.post(verify_endpoint, data=req_body_json, headers=headers)
+    response = requests.post(verify_endpoint, json=req_body)
     
     # 处理响应
     if response.status_code != 200:
@@ -385,9 +381,9 @@ if __name__ == '__main__':
 ```
 
 **注意事项**：
-1. 上述签名生成方法是示例性的，实际使用时应遵循Utopixel提供的具体签名规范。
-2. App Key和Secret Key应通过环境变量或其他安全方式存储，不要硬编码。
-3. 在生产环境中，应实现更完善的错误处理和日志记录。
+1. 请求体中包含app_key、token、timestamp和签名信息，而不是通过请求头传递。
+2. 签名生成使用timestamp和token组合，确保请求的唯一性和安全性。
+3. App Key和Secret Key应通过环境变量或其他安全方式存储，不要硬编码。
 
 ### 步骤六：刷新访问令牌
 
